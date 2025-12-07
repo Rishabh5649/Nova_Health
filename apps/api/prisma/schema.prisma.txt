@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?  @unique
+  passwordHash  String
+  role          Role
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  patient       Patient?
+  doctor        Doctor?
+}
+
+model Patient {
+  userId             String  @id
+  user               User    @relation(fields: [userId], references: [id])
+  name               String
+  dob                DateTime?
+  gender             String?
+  allergies          String[]
+  chronicConditions  String[]
+}
+
+model Doctor {
+  userId             String  @id
+  user               User    @relation(fields: [userId], references: [id])
+  name               String
+  qualifications     String[]
+  specialties        String[]
+  yearsExperience    Int      @default(0)
+  bio                String?
+  verificationStatus String   @default("PENDING")
+  baseFee            Int      @default(0)
+  ratingAvg          Float    @default(0)
+  ratingCount        Int      @default(0)
+  timezone           String   @default("Asia/Kolkata")
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  patientId   String
+  doctorId    String
+  startTime   DateTime
+  endTime     DateTime
+  status      String   @default("PENDING") // PENDING/ACCEPTED/RESCHEDULED/CANCELLED/COMPLETED
+  mode        String   @default("CLINIC")  // CLINIC/ONLINE (future)
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([doctorId, startTime, endTime])
+  @@index([patientId, startTime])
+}
+
+model Prescription {
+  id             String   @id @default(cuid())
+  appointmentId  String   @unique
+  patientId      String
+  doctorId       String
+  issuedAt       DateTime @default(now())
+  medications    Json
+  notes          String?
+  pdfUrl         String?
+}
+
+model MedicalRecord {
+  id         String   @id @default(cuid())
+  patientId  String
+  type       String
+  fileUrl    String
+  metadata   Json
+  createdAt  DateTime @default(now())
+}

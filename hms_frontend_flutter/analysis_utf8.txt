@@ -1,0 +1,61 @@
+﻿Analyzing lib...                                                
+
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\app_theme.dart:33:7 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\app_theme.dart:93:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\app_theme.dart:101:36 - deprecated_member_use
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\app_theme.dart:116:7 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\app_theme.dart:176:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\app_theme.dart:184:36 - deprecated_member_use
+warning - Dead code - lib\core\api_client.dart:26:30 - dead_code
+warning - Dead code - lib\core\api_client.dart:65:35 - dead_code
+warning - Dead code - lib\core\api_client.dart:65:52 - dead_code
+warning - Dead code - lib\core\api_client.dart:65:70 - dead_code
+warning - The '!' will have no effect because the receiver can't be null - lib\core\api_client.dart:65:79 - unnecessary_non_null_assertion
+warning - Dead code - lib\core\api_client.dart:65:89 - dead_code
+warning - Unnecessary cast - lib\core\auth_repo.dart:30:46 - unnecessary_cast
+warning - The declaration '_store' isn't referenced - lib\core\providers.dart:91:20 - unused_element
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\signup_screen.dart:160:29 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\signup_screen.dart:161:29 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\signup_screen.dart:169:29 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\signup_screen.dart:170:29 - deprecated_member_use
+warning - The value of the field '_loading' isn't used - lib\features\public\public_dashboard_screen.dart:23:8 - unused_field
+warning - A value for optional parameter 'key' isn't ever given - lib\features\public\public_dashboard_screen.dart:362:11 - unused_element_parameter
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?[' can't be used - lib\features\public\public_dashboard_screen.dart:388:31 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?[' can't be used - lib\features\public\public_dashboard_screen.dart:389:31 - invalid_null_aware_operator
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\public\public_dashboard_screen.dart:473:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\public\public_dashboard_screen.dart:486:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\public\public_dashboard_screen.dart:515:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\public\public_dashboard_screen.dart:524:49 - deprecated_member_use
+warning - A value for optional parameter 'key' isn't ever given - lib\features\public\public_dashboard_screen.dart:615:80 - unused_element_parameter
+warning - Unused import: '../../screens/doctor_patients_screen.dart' - lib\features\shell\home_doctor.dart:9:8 - unused_import
+warning - The value of the field '_completedToday' isn't used - lib\features\shell\home_doctor.dart:22:7 - unused_field
+  error - The named parameter 'color' is required, but there's no corresponding argument - lib\features\shell\home_doctor.dart:191:28 - missing_required_argument
+  error - The named parameter 'icon' is required, but there's no corresponding argument - lib\features\shell\home_doctor.dart:191:28 - missing_required_argument
+  error - The named parameter 'value' is required, but there's no corresponding argument - lib\features\shell\home_doctor.dart:191:28 - missing_required_argument
+  error - The named parameter 'mainAxisAlignment' isn't defined - lib\features\shell\home_doctor.dart:193:17 - undefined_named_parameter
+  error - The named parameter 'children' isn't defined - lib\features\shell\home_doctor.dart:194:17 - undefined_named_parameter
+  error - Too many positional arguments: 0 expected, but 2 found - lib\features\shell\home_doctor.dart:207:15 - extra_positional_arguments_could_be_named
+  error - Expected to find ')' - lib\features\shell\home_doctor.dart:255:13 - expected_token
+  error - Expected to find ']' - lib\features\shell\home_doctor.dart:257:9 - expected_token
+  error - Expected to find ')' - lib\features\shell\home_doctor.dart:259:6 - expected_token
+warning - A value for optional parameter 'isAction' isn't ever given - lib\features\shell\home_doctor.dart:289:10 - unused_element_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shell\home_doctor.dart:341:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shell\home_doctor.dart:342:39 - deprecated_member_use
+warning - Dead code - lib\main.dart:36:30 - dead_code
+warning - The operand can't be 'null', so the condition is always 'true' - lib\main.dart:172:39 - unnecessary_null_comparison
+  error - Target of URI doesn't exist: 'package:flutter_rating_bar/flutter_rating_bar.dart' - lib\screens\appointment_list_screen.dart:7:8 - uri_does_not_exist
+warning - Unused import: 'package:dio/dio.dart' - lib\screens\completed_appointment_detail.dart:3:8 - unused_import
+warning - The declaration '_savePrescription' isn't referenced - lib\screens\completed_appointment_detail.dart:91:16 - unused_element
+warning - Unused import: 'package:go_router/go_router.dart' - lib\screens\doctor_patients_screen.dart:3:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\doctor_profile_screen.dart:166:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\doctor_profile_screen.dart:168:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\doctor_today_appointments_screen.dart:150:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\doctor_today_appointments_screen.dart:152:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\doctor_today_appointments_screen.dart:153:59 - deprecated_member_use
+warning - Unused import: 'package:go_router/go_router.dart' - lib\screens\pending_requests_screen.dart:3:8 - unused_import
+warning - Unused import: '../services/appointment_api.dart' - lib\screens\pending_requests_screen.dart:5:8 - unused_import
+warning - The declaration '_accept' isn't referenced - lib\screens\pending_requests_screen.dart:62:16 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\app_logo_leading.dart:21:60 - deprecated_member_use
+   info - 'surfaceVariant' is deprecated and shouldn't be used. Use surfaceContainerHighest instead. This feature was deprecated after v3.18.0-0.1.pre - lib\widgets\skeleton_list.dart:23:56 - deprecated_member_use
+   info - 'surfaceVariant' is deprecated and shouldn't be used. Use surfaceContainerHighest instead. This feature was deprecated after v3.18.0-0.1.pre - lib\widgets\skeleton_list.dart:29:56 - deprecated_member_use
+
