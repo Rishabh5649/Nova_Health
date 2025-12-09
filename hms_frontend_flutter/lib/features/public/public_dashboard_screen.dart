@@ -8,6 +8,8 @@ import '../../core/providers.dart';
 import '../../core/session_store.dart'; // Import Session class
 import 'doctors_public_service.dart';
 import 'models/doctor_public.dart';
+import 'organizations_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme_provider.dart'; // if you put theme provider there
 
 class PublicDashboardScreen extends ConsumerStatefulWidget {
@@ -20,6 +22,7 @@ class _PublicDashboardScreenState extends ConsumerState<PublicDashboardScreen> {
   List<DoctorPublic> _docs = [];
   List<DoctorPublic> _allDocs = []; // all doctors from API
   List<DoctorPublic> _filteredDocs = []; // filtered list for "All doctors" section
+  List<Map<String, dynamic>> _orgs = []; // featured organizations
   bool _loading = true;
   String _q = '';
   final TextEditingController _searchController = TextEditingController();
@@ -43,38 +46,38 @@ class _PublicDashboardScreenState extends ConsumerState<PublicDashboardScreen> {
     try {
       setState(() => _loading = true);
     } catch (e) {
-      // Handle setState errors
       return;
     }
     
     try {
       final dio = ref.read(apiClientProvider).dio;
       final svc = DoctorsPublicService(dio);
+      final orgSvc = ref.read(organizationsServiceProvider);
+
       // Load all doctors once (no search query) for client-side filtering
       final allRes = await svc.list(take: 100);
-      // Load featured doctors (first 5) for carousel once, not affected by search
+      // Load featured doctors (first 5) for carousel once
       final featuredRes = await svc.list(take: 5);
+      // Load featured organizations
+      final orgsRes = await orgSvc.list();
       
       if (mounted) {
         try {
           setState(() {
-            _allDocs = allRes; // All doctors for the "All doctors" section
-            _docs = featuredRes; // Featured doctors (first 5) for carousel
+            _allDocs = allRes; // All doctors
+            _docs = featuredRes; // Featured doctors
+            _orgs = orgsRes.take(5).toList();
             _loading = false;
           });
           _applyFilter();
         } catch (e) {
-          // Handle setState errors silently
         }
       }
     } catch (e) {
-      // Silently handle errors - don't show snackbar to reduce noise
-      // Just set loading to false
       if (mounted) {
         try {
           setState(() => _loading = false);
         } catch (e) {
-          // Handle setState errors silently
         }
       }
     }
@@ -219,7 +222,7 @@ class _PublicDashboardScreenState extends ConsumerState<PublicDashboardScreen> {
             // Featured doctors horizontally
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 180,
+                height: 205,
                 child: ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   scrollDirection: Axis.horizontal,
@@ -249,6 +252,39 @@ class _PublicDashboardScreenState extends ConsumerState<PublicDashboardScreen> {
                 ),
               ),
             ),
+
+            // Organizations title
+            if (_orgs.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text('Trusted Organizations', style: Theme.of(context).textTheme.titleLarge),
+                ),
+              ),
+              
+              // Organizations horizontally
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 190,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _orgs.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (ctx, i) {
+                      final org = _orgs[i];
+                      return _FeaturedOrganizationCard(
+                        org: org,
+                        onTap: () {
+                           context.push('/organizations/${org['id']}');
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
 
             // List title
             SliverToBoxAdapter(
@@ -319,6 +355,12 @@ class _PublicDashboardScreenState extends ConsumerState<PublicDashboardScreen> {
             ),
 
             SliverToBoxAdapter(child: const SizedBox(height: 40)),
+            
+            // About Us Section
+            const SliverToBoxAdapter(
+              child: _AboutUsSection(),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
         ),
       ),
@@ -367,19 +409,17 @@ class _HeaderArea extends ConsumerWidget {
     final top = MediaQuery.of(context).padding.top;
     final size = MediaQuery.of(context).size;
     
-    ThemeMode tm = ThemeMode.dark;
+    ThemeMode tm = ThemeMode.system;
     Session? session;
     try {
-      tm = ref.watch(themeModeProvider);
+      tm = ref.watch(themeProvider);
     } catch (e) {
-      // Use default theme mode on error
-      tm = ThemeMode.dark;
+      tm = ThemeMode.system;
     }
     
     try {
       session = ref.watch(sessionAtomProvider).value;
     } catch (e) {
-      // Handle provider errors
       session = null;
     }
     
@@ -389,18 +429,15 @@ class _HeaderArea extends ConsumerWidget {
                  session?.user?['email']?.toString() ?? 
                  'Guest';
     } catch (e) {
-      // Use default if there's any error accessing user data
       userName = 'Guest';
     }
     
-    // Calculate logo size - smaller since it's on the side now
-    double screenWidth = 800.0; // Default fallback
+    // Calculate logo size - bigger as requested
+    double screenWidth = 800.0;
     try {
       screenWidth = size.width;
-    } catch (e) {
-      // Use default width on error
-    }
-    final logoSize = (screenWidth * 0.15).clamp(80.0, 150.0);
+    } catch (e) {}
+    final logoSize = (screenWidth * 0.22).clamp(100.0, 180.0);
     
     return Container(
       padding: EdgeInsets.only(top: top + 12, left: 16, right: 16, bottom: 18),
@@ -417,42 +454,77 @@ class _HeaderArea extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row with theme toggle and sign in
+          // Top row with For Doctors (left) and Sign In + Theme (right)
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Theme toggle
-              IconButton(
-                tooltip: tm == ThemeMode.dark ? 'Switch to light' : 'Switch to dark',
-                onPressed: () {
-                  try {
-                    ref.read(themeModeProvider.notifier).toggle();
-                  } catch (e) {
-                    // Handle theme toggle errors
-                  }
-                },
-                icon: Icon(tm == ThemeMode.dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-                color: Colors.white,
+              // Link to Doctor Home
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => context.go('/doctor-home'),
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'For Doctors',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 14),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              // Auth buttons when logged out
-              if (!isLoggedIn) ...[
-                const SizedBox(width: 8),
-                FilledButton.tonal(
-                  onPressed: onSignInPressed,
-                  child: const Text('Sign in'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: onSignUpPressed,
-                  child: const Text('Sign up'),
-                ),
-              ],
+
+              // Right side items
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Theme toggle
+                  IconButton(
+                    tooltip: 'Toggle Theme',
+                    onPressed: () {
+                      try {
+                        ref.read(themeProvider.notifier).toggleTheme();
+                      } catch (e) {}
+                    },
+                    icon: Icon(tm == ThemeMode.dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 28),
+                    color: Colors.white,
+                  ),
+                  
+                  // Auth buttons when logged out
+                  if (!isLoggedIn) ...[
+                    const SizedBox(width: 8),
+                    FilledButton.tonal(
+                      onPressed: onSignInPressed,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      child: const Text('Sign in'),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
           
           const SizedBox(height: 12),
           
-          // Logo and title row - logo on left, title in center
+          // Logo and title row
           Row(
             children: [
               // Logo on the left side
@@ -502,28 +574,29 @@ class _HeaderArea extends ConsumerWidget {
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 28,
+                            fontSize: 32, // slightly larger
                             letterSpacing: 0.5,
                           ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       isLoggedIn 
                           ? 'Welcome back, $userName! 👋' 
                           : 'Your Health, Our Priority 💙',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: Colors.white.withOpacity(0.95),
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.w500,
                           ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
-                      'Find trusted doctors & book instantly',
+                      'Find trusted doctors, book instantly & store medical history',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
                             fontStyle: FontStyle.italic,
+                            height: 1.4,
                           ),
                     ),
                   ],
@@ -533,8 +606,7 @@ class _HeaderArea extends ConsumerWidget {
           ),
 
           const SizedBox(height: 16),
-
-          // Search bar
+          // Search bar placeholder
           const SizedBox.shrink(),
         ],
       ),
@@ -619,7 +691,7 @@ class _FeaturedDoctorCard extends StatelessWidget {
     // give the card a fixed height so it can't overflow the carousel
     return SizedBox(
       width: 280,
-      height: 170,
+      height: 195,
       child: Card(
         clipBehavior: Clip.hardEdge,
         child: Padding(
@@ -637,7 +709,7 @@ class _FeaturedDoctorCard extends StatelessWidget {
                 ]),
               ]),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // limit the chip area height and allow horizontal scrolling for many chips
               SizedBox(
@@ -677,60 +749,115 @@ class _DoctorListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Avatar
-            _AvatarForDoctor(doctor: doctor, size: 46),
-            const SizedBox(width: 12),
-            // Doctor info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          try {
+            context.push('/doctor-profile/${doctor.userId}');
+          } catch (e) {
+            // navigate safely
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Avatar
+              _AvatarForDoctor(doctor: doctor, size: 56),
+              const SizedBox(width: 12),
+              // Doctor info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      doctor.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    // Organization & Location
+                    if (doctor.organizationName != null)
+                      Row(
+                        children: [
+                          const Icon(Icons.business_rounded, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${doctor.organizationName} ${doctor.organizationAddress != null ? "• ${doctor.organizationAddress}" : ""}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 4),
+                    // Rating & Experience
+                    Row(
+                      children: [
+                        if (doctor.ratingAvg != null) ...[
+                          Icon(Icons.star_rounded, size: 16, color: Colors.amber[700]),
+                          const SizedBox(width: 2),
+                          Text(
+                            doctor.ratingAvg!.toStringAsFixed(1),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (doctor.yearsExperience != null) ...[
+                          Icon(Icons.work_history_rounded, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${doctor.yearsExperience} yrs',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Specialties wrapped
+                    if (doctor.specialties != null && doctor.specialties!.isNotEmpty)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: doctor.specialties!.take(3).map((s) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(s, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.primary)),
+                        )).toList(),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Price and Book button
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    doctor.name,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    '₹${doctor.baseFee ?? '—'}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.green[700]),
                   ),
-                  const SizedBox(height: 6),
-                  // Specialties wrapped
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: (doctor.specialties ?? [])
-                        .map((s) => Chip(
-                              label: Text(s, style: const TextStyle(fontSize: 12)),
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                            ))
-                        .toList(),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: onBook,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Book'),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            // Price and Book button
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '₹${doctor.baseFee ?? '—'}',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: onBook,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                  child: const Text('Book'),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -750,6 +877,127 @@ class _AvatarForDoctor extends StatelessWidget {
     return CircleAvatar(
       radius: size / 2,
       child: Text(initials, style: TextStyle(fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+class _FeaturedOrganizationCard extends StatelessWidget {
+  final Map<String, dynamic> org;
+  final VoidCallback onTap;
+  
+  const _FeaturedOrganizationCard({required this.org, required this.onTap});
+  
+  @override
+  Widget build(BuildContext context) {
+    // Random color generation for placeholder or use logo
+    final name = org['name'] as String? ?? 'Organization';
+    final initial = name.isNotEmpty ? name[0] : 'O';
+    
+    return SizedBox(
+      width: 200,
+      child: Card(
+        clipBehavior: Clip.hardEdge,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(initial, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.blueAccent)),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        org['type'] as String? ?? 'General Hospital',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const Text('View Details', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutUsSection extends StatelessWidget {
+  const _AboutUsSection();
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Theme.of(context).brightness == Brightness.dark ? Colors.white12 : Colors.grey[100],
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const Icon(Icons.volunteer_activism_rounded, size: 48, color: Colors.blueAccent),
+          const SizedBox(height: 16),
+          Text(
+            'About Nova Health',
+            style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Our mission is to make quality healthcare accessible to everyone. '
+            'We connect patients with trusted medical professionals and organizations, '
+            'streamlining the process of booking appointments, managing records, '
+            'and receiving care.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600], height: 1.6),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _FeatureIcon(Icons.verified_user_rounded, 'Trusted'),
+              const SizedBox(width: 24),
+              _FeatureIcon(Icons.speed_rounded, 'Fast'),
+              const SizedBox(width: 24),
+              _FeatureIcon(Icons.security_rounded, 'Secure'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeatureIcon extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _FeatureIcon(this.icon, this.label);
+  
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.blueAccent),
+        const SizedBox(height: 4),
+        Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }

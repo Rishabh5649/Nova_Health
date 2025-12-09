@@ -22,6 +22,7 @@ class DoctorPublic {
     this.ratingCount,
     this.organizationName,
     this.organizationId,
+    this.organizationAddress,
     this.organizationLat,
     this.organizationLng,
   });
@@ -81,6 +82,7 @@ class DoctorPublic {
 
     String? orgName;
     String? orgId;
+    String? orgAddress;
     double? orgLat;
     double? orgLng;
 
@@ -90,6 +92,7 @@ class DoctorPublic {
         final org = m['organization'];
         orgName = org['name']?.toString();
         orgId = org['id']?.toString();
+        orgAddress = org['address']?.toString();
         if (org['latitude'] != null) orgLat = double.tryParse(org['latitude'].toString());
         if (org['longitude'] != null) orgLng = double.tryParse(org['longitude'].toString());
       }
@@ -107,6 +110,7 @@ class DoctorPublic {
       ratingCount: ratingCount,
       organizationName: orgName,
       organizationId: orgId,
+      organizationAddress: orgAddress,
       organizationLat: orgLat,
       organizationLng: orgLng,
     );
@@ -114,6 +118,7 @@ class DoctorPublic {
 
   final String? organizationName;
   final String? organizationId;
+  final String? organizationAddress;
   final double? organizationLat;
   final double? organizationLng;
 }
