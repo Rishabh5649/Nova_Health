@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../core/providers.dart';
 
 class BookAppointmentDetailsScreen extends ConsumerStatefulWidget {
@@ -16,28 +17,81 @@ class BookAppointmentDetailsScreen extends ConsumerStatefulWidget {
 
 class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDetailsScreen> {
   final _symptomsCtrl = TextEditingController();
-  final _notesCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController(); // Used for notes/reason
   bool _loadingDoctor = true;
   bool _submitting = false;
   Map<String, dynamic>? _doctor;
   bool _checkingEligibility = true;
   Map<String, dynamic>? _eligibility;
+  
+  late Razorpay _razorpay;
+  String? _pendingOrgId; 
+  bool _simulatePayment = false;
 
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadDoctorAndCheckEligibility();
   }
 
   @override
   void dispose() {
+    _razorpay.clear();
     _symptomsCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
+  
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    // Payment Done. Verify and Book.
+    try {
+      final dio = ref.read(apiClientProvider).dio;
+      
+      // Verify first
+      await dio.post('/payments/verify', data: {
+        'orderId': response.orderId,
+        'paymentId': response.paymentId,
+        'signature': response.signature
+      });
+      
+      // If verify success, Proceed to Book
+      await _finalizeBooking(paymentData: {
+        'razorpayOrderId': response.orderId,
+        'razorpayPaymentId': response.paymentId,
+        'paymentStatus': 'PAID'
+      });
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payment Verification Failed: $e')),
+      );
+      setState(() => _submitting = false);
+    }
+  }
 
+  void _handlePaymentError(PaymentFailureResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Payment Failed: ${response.message}')),
+    );
+    setState(() => _submitting = false);
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External Wallet: ${response.walletName}')),
+    );
+    // Usually means success or pending? Razorpay docs say handle separately.
+    // For now treated as info.
+  }
+
+  // ... (rest of load logic identical) ...
   Future<void> _loadDoctorAndCheckEligibility() async {
-    setState(() {
+     // ... (Keep existing implementation) ...
+     setState(() {
       _loadingDoctor = true;
       _checkingEligibility = true;
     });
@@ -50,7 +104,7 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
       // Load doctor
       final docRes = await dio.get('/doctors/${widget.doctorId}');
       
-      // Check eligibility if patient is logged in
+      // Check eligibility
       Map<String, dynamic>? eligibilityData;
       if (patientId != null) {
         try {
@@ -78,9 +132,6 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
         _loadingDoctor = false;
         _checkingEligibility = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading details: $e')),
-      );
     }
   }
 
@@ -92,17 +143,13 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
       return;
     }
 
-    // Extract organization memberships
+    // Organization Selection
     List<dynamic>? memberships;
     try {
       memberships = _doctor?['user']?['memberships'] as List?;
-    } catch (e) {
-      debugPrint('Could not extract memberships: $e');
-    }
+    } catch (e) { }
 
     String? organizationId;
-
-    // If doctor has multiple organizations, let patient choose
     if (memberships != null && memberships.length > 1) {
       final selectedOrg = await showDialog<Map<String, dynamic>>(
         context: context,
@@ -121,37 +168,97 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
           ),
         ),
       );
-
-      if (selectedOrg == null) return; // User cancelled
+      if (selectedOrg == null) return;
       organizationId = selectedOrg['id']?.toString();
     } else if (memberships != null && memberships.isNotEmpty) {
-      // Single organization - use it directly
       organizationId = memberships[0]['organizationId']?.toString();
     }
-
+    
+    _pendingOrgId = organizationId;
+    
+    // Fee Calculation
+    final doc = _doctor;
+    final chargedFee = _eligibility?['chargedFee'] ?? doc?['baseFee'] ?? doc?['fees'] ?? 0;
+    
     setState(() => _submitting = true);
-    try {
+
+    if (chargedFee > 0) {
+      // Dev Mode Bypass
+      if (_simulatePayment) {
+        // Wait a bit to simulate network
+        await Future.delayed(const Duration(seconds: 1));
+        _handlePaymentSuccess(PaymentSuccessResponse(
+           'pay_simulated_${DateTime.now().millisecondsSinceEpoch}',
+           'order_simulated_${DateTime.now().millisecondsSinceEpoch}',
+           'simulated_signature',
+           null
+        ));
+        return;
+      }
+
+      // Initiate Razorpay Flow
+      try {
+        final dio = ref.read(apiClientProvider).dio;
+        // Create Order
+        final orderRes = await dio.post('/payments/create-order', data: {'amount': chargedFee});
+        final orderData = orderRes.data;
+        final String orderId = orderData['id'].toString();
+        
+        var options = {
+          'key': 'rzp_test_1DP5mmOlF5G5ag',
+          'amount': orderData['amount'],
+          'name': 'Nova Health',
+          'description': 'Appointment with Dr. ${_doctor?['name']}',
+          if (!orderId.contains('simulated')) 'order_id': orderId,
+          'prefill': {
+            'contact': '9123456789',
+            'email': 'test@example.com'
+          },
+          'theme': {'color': '#0F766E'}
+        };
+        
+        debugPrint('Attempting to open Razorpay: $options');
+        try {
+           _razorpay.open(options);
+        } catch (e) {
+           debugPrint('Razorpay.open() failed: $e');
+           throw e;
+        }
+        
+        // Stop loading immediately. 
+        // If the sheet opens, the user interacts with it.
+        // If it fails to open, the user isn't stuck.
+        setState(() => _submitting = false);
+
+      } catch (e) {
+        debugPrint('Error initiating payment: $e');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment Init Failed: $e')));
+        setState(() => _submitting = false);
+      }
+    } else {
+      // Free or Follow-up
+      await _finalizeBooking();
+    }
+  }
+
+  Future<void> _finalizeBooking({Map<String, dynamic>? paymentData}) async {
+     try {
       final dio = ref.read(apiClientProvider).dio;
       
-      // For MVP we send a request and let the doctor choose the exact slot.
-      // Backend expects: { doctorUserId, scheduledAt, reason, organizationId }
       final requestData = {
         'doctorUserId': widget.doctorId,
         'scheduledAt': DateTime.now().toUtc().toIso8601String(),
         'reason': _symptomsCtrl.text.trim(),
+        if (_pendingOrgId != null) 'organizationId': _pendingOrgId,
+        'notes': _notesCtrl.text.trim(),
+        if (paymentData != null) ...paymentData
       };
-      
-      if (organizationId != null) {
-        requestData['organizationId'] = organizationId;
-      }
       
       await dio.post('/appointments/request', data: requestData);
       
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Appointment request sent to doctor'),
-        ),
+        const SnackBar(content: Text('Appointment confirmed successfully!')),
       );
       context.pop();
     } catch (e) {
@@ -161,9 +268,7 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
         SnackBar(content: Text('Error: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _submitting = false);
-      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -274,11 +379,24 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (!isFollowUp)
-                  const Text(
+                if (!isFollowUp) ...[
+                   CheckboxListTile(
+                     title: const Text('Dev Mode: Simulate Payment'),
+                     subtitle: const Text('Skip actual gateway (for testing)'),
+                     value: _simulatePayment,
+                     onChanged: (val) => setState(() => _simulatePayment = val ?? false),
+                     contentPadding: EdgeInsets.zero,
+                     dense: true,
+                     controlAffinity: ListTileControlAffinity.leading,
+                   ),
+                   const Text(
                     'Base fees for this doctor must be paid now. Anything extra will be charged after the appointment.',
                     style: TextStyle(fontStyle: FontStyle.italic),
                   ),
+                   const SizedBox(height: 16),
+                ],
+                if (isFollowUp)
+                  const SizedBox(height: 24),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _submitting ? null : _submit,

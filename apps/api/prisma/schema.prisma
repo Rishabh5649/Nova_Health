@@ -75,7 +75,26 @@ model User {
   rescheduleRequests RescheduleRequest[]
   
   // Cancellations performed by this user
+  // Cancellations performed by this user
   appointmentCancellations AppointmentCancellation[]
+
+  // Notifications
+  notifications Notification[]
+  
+  // Custom Reminders
+  reminders     PatientReminder[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // SYSTEM, APPOINTMENT, PROMO
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 //
@@ -164,6 +183,7 @@ model Patient {
   gender            String?
   allergies         String[]
   chronicConditions String[]
+  isMedicalHistoryShared Boolean @default(false)
 
   user User @relation(fields: [userId], references: [id])
   
@@ -254,6 +274,12 @@ model Appointment {
   review        Review?
   rescheduleRequests RescheduleRequest[]
   cancellation  AppointmentCancellation?
+  
+  // Payment fields
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  paymentStatus     String   @default("PENDING") // PENDING, PAID, FAILED
+  payments          Payment[]
 }
 
 
@@ -431,4 +457,41 @@ model Review {
   organization        Organization? @relation(fields: [organizationId], references: [id])
   organizationRating  Int?      // 1-5
   organizationComment String?
+}
+
+//
+// PATIENT CUSTOM REMINDERS
+//
+model PatientReminder {
+  id           String   @id @default(uuid())
+  patientId    String
+  medicineName String
+  frequency    Int      // Times per day
+  timeSlots    String[] // Array of "HH:mm" strings
+  duration     Int      // Number of days
+  startDate    DateTime @default(now())
+  endDate      DateTime // Calculated end date
+  isEnabled    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  patient      User     @relation(fields: [patientId], references: [id])
+}
+
+//
+// PAYMENTS
+//
+model Payment {
+  id                String   @id @default(uuid())
+  appointmentId     String
+  razorpayOrderId   String
+  razorpayPaymentId String?
+  razorpaySignature String?
+  amount            Int      // in smallest currency unit (paise)
+  currency          String   @default("INR")
+  status            String   // created, paid, failed
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  appointment       Appointment @relation(fields: [appointmentId], references: [id])
 }
