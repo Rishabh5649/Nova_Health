@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, parseISO } from 'date-fns';
 import { getDoctorAvailability, directReschedule, getDoctorTimeOff } from '@/lib/api';
 
-export default function CalendarContent() {
+function CalendarContentInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const appointmentIdToSchedule = searchParams.get('appointmentId');
@@ -489,6 +489,14 @@ export default function CalendarContent() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function CalendarContent() {
+    return (
+        <Suspense fallback={<div>Loading calendar...</div>}>
+            <CalendarContentInner />
+        </Suspense>
     );
 }
 
