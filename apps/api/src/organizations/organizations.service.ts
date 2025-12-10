@@ -4,18 +4,83 @@ import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { UpdateDoctorDto } from '../doctors/dto/update-doctor.dto';
 
+import * as bcrypt from 'bcrypt';
+
 @Injectable()
 export class OrganizationsService {
   constructor(private prisma: PrismaService) { }
 
   async create(createOrganizationDto: CreateOrganizationDto) {
+    if (createOrganizationDto.adminUser) {
+      const { adminUser, ...orgData } = createOrganizationDto;
+      const hashedPassword = await bcrypt.hash(adminUser.password, 10);
+
+      return this.prisma.$transaction(async (tx) => {
+        // 1. Create User (Role: DOCTOR or appropriate)
+        // Check if email exists
+        const existingUser = await tx.user.findUnique({ where: { email: adminUser.email } });
+        if (existingUser) {
+          throw new Error('User with this email already exists');
+        }
+
+        const user = await tx.user.create({
+          data: {
+            name: adminUser.name,
+            email: adminUser.email,
+            password: hashedPassword,
+            phone: adminUser.phone,
+            role: 'DOCTOR', // Default role for org creator
+          },
+        });
+
+        // 2. Create Organization
+        const org = await tx.organization.create({
+          data: {
+            ...orgData,
+            status: 'PENDING',
+            feeControlMode: orgData.feeControlMode || 'doctor_controlled', // Default
+            yearEstablished: orgData.yearEstablished && Number(orgData.yearEstablished), // Ensure number
+            latitude: orgData.latitude && Number(orgData.latitude),
+            longitude: orgData.longitude && Number(orgData.longitude),
+            branches: orgData.branches || [],
+            settings: {
+              create: {
+                // Default settings
+              }
+            }
+          },
+        });
+
+        // 3. Create Membership
+        await tx.organizationMembership.create({
+          data: {
+            userId: user.id,
+            organizationId: org.id,
+            role: 'ORG_ADMIN',
+            status: 'APPROVED',
+          },
+        });
+
+        return org;
+      });
+    }
+
     return this.prisma.organization.create({
       data: createOrganizationDto,
     });
   }
 
-  async findAll() {
-    return this.prisma.organization.findMany();
+  async findAll(status?: string) {
+    return this.prisma.organization.findMany({
+      where: status ? { status } : undefined,
+    });
+  }
+
+  async updateStatus(id: string, status: 'APPROVED' | 'REJECTED') {
+    return this.prisma.organization.update({
+      where: { id },
+      data: { status },
+    });
   }
 
   async findOne(id: string) {

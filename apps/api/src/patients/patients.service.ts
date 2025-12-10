@@ -4,7 +4,7 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 
 @Injectable()
 export class PatientsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Get the logged-in patient's profile (patient table joined with user basic info).
@@ -45,9 +45,38 @@ export class PatientsService {
     }
 
     // We trust dto because UpdatePatientDto should already restrict allowed fields
+    // Check for immutable fields
+    if (dto.dob && patient.dob) {
+      throw new ForbiddenException('Date of birth cannot be changed once set.');
+    }
+    if (dto.bloodGroup && patient.bloodGroup) {
+      throw new ForbiddenException('Blood group cannot be changed once set.');
+    }
+    if (dto.gender && patient.gender) {
+      throw new ForbiddenException('Gender cannot be changed once set.');
+    }
+
+    // Separate User fields
+    const { email, phone, ...patientData } = dto;
+
+    // Update User if email/phone provided
+    if (email || phone) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(email && { email }),
+          ...(phone && { phone }),
+        },
+      });
+    }
+
     return this.prisma.patient.update({
       where: { userId },
-      data: dto as any,
+      data: {
+        ...patientData,
+        // Ensure that if we are "setting" it for the first time, it works.
+        // If it was already set, we threw exception above.
+      } as any,
     });
   }
 
@@ -81,13 +110,13 @@ export class PatientsService {
           }),
           rx.appointmentId
             ? this.prisma.appointment.findUnique({
-                where: { id: rx.appointmentId },
-                select: {
-                  id: true,
-                  scheduledAt: true,
-                  status: true,
-                },
-              })
+              where: { id: rx.appointmentId },
+              select: {
+                id: true,
+                scheduledAt: true,
+                status: true,
+              },
+            })
             : Promise.resolve(null),
         ]);
 
@@ -143,5 +172,47 @@ export class PatientsService {
         // recordedAt auto defaults in schema
       },
     });
+  }
+
+  /**
+   * Generates a summary of the patient's medical history and prescriptions.
+   * This mimics an AI summarizer bot.
+   */
+  async getSummary(userId: string) {
+    const records = await this.listMyRecords(userId);
+    const prescriptions = await this.listMyPrescriptions(userId);
+
+    if (records.length === 0 && prescriptions.length === 0) {
+      return { summary: 'No medical history or prescriptions found for this patient.' };
+    }
+
+    const conditions = records.map((r) => r.diagnosis).filter(Boolean);
+    const uniqueConditions = [...new Set(conditions)];
+
+    let summary = `**Patient Content Summary**\n\n`;
+
+    if (uniqueConditions.length > 0) {
+      summary += `**Diagnosed Conditions:**\n${uniqueConditions.join(', ')}\n\n`;
+    } else {
+      summary += `No specific diagnoses recorded in history.\n\n`;
+    }
+
+    if (records.length > 0) {
+      const recent = records[0];
+      summary += `**Most Recent Record:**\n${recent.diagnosis} (${recent.recordedAt.toDateString()})\n${recent.details || ''}\n\n`;
+    }
+
+    if (prescriptions.length > 0) {
+      const recentRx = prescriptions[0];
+      summary += `**Latest Prescription:**\nDate: ${recentRx.createdAt.toDateString()}\n`;
+      if (recentRx['medications']) {
+        const meds = (recentRx['medications'] as any[]).map(m => m.name).join(', ');
+        summary += `Medications: ${meds}\n`;
+      }
+    }
+
+    summary += `\n**Overview:**\nThis patient has ${records.length} history records and ${prescriptions.length} prescriptions on file.`;
+
+    return { summary };
   }
 }

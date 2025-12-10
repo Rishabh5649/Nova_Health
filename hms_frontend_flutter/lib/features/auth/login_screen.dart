@@ -102,6 +102,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       (v == null || v.isEmpty) ? 'Password is required' : null,
                   onFieldSubmitted: (_) => _submit(),
                 ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.push('/forgot-password'),
+                    child: const Text('Forgot Password?'),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 if (_err != null)
                   Padding(
@@ -124,6 +131,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Sign in'),
                   ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Don't have an account?"),
+                    TextButton(
+                      onPressed: () => context.go('/signup'),
+                      child: const Text('Sign up'),
+                    ),
+                  ],
                 ),
               ]),
             ),

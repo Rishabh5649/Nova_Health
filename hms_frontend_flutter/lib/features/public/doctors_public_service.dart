@@ -1,5 +1,11 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/providers.dart';
 import 'models/doctor_public.dart';
+
+final doctorsPublicServiceProvider = Provider<DoctorsPublicService>((ref) {
+  return DoctorsPublicService(ref.read(apiClientProvider).dio);
+});
 
 class DoctorsPublicService {
   final Dio _dio;
@@ -52,6 +58,19 @@ class DoctorsPublicService {
       return {};
     } catch (e) {
       return {};
+    }
+  }
+  /// List public organizations
+  Future<List<Map<String, dynamic>>> listOrganizations({String? q}) async {
+    try {
+      final res = await _dio.get('/organizations'); // Adjust endpoint if needed
+      final data = res.data;
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>().toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
     }
   }
 }

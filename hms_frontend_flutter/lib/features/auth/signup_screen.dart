@@ -143,37 +143,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       validator: (v) =>
                           (v != _pass.text) ? 'Passwords do not match' : null,
                     ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Role',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: RadioListTile<String>(
-                            title: const Text('Patient'),
-                            value: 'PATIENT',
-                            groupValue: _role,
-                            onChanged: (v) =>
-                                setState(() => _role = v ?? 'PATIENT'),
-                          ),
-                        ),
-                        Expanded(
-                          child: RadioListTile<String>(
-                            title: const Text('Doctor'),
-                            value: 'DOCTOR',
-                            groupValue: _role,
-                            onChanged: (v) =>
-                                setState(() => _role = v ?? 'PATIENT'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 24),
                     if (_err != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),

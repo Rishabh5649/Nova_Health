@@ -23,8 +23,19 @@ export class OrganizationsController {
   }
 
   @Get()
-  findAll() {
-    return this.organizationsService.findAll();
+  findAll(@Query('status') status?: string) {
+    return this.organizationsService.findAll(status);
+  }
+
+  // Super Admin: Approve/Reject Organization
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: { status: 'APPROVED' | 'REJECTED' }
+  ) {
+    return this.organizationsService.updateStatus(id, body.status);
   }
 
   @Get(':id')

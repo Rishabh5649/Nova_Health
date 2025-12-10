@@ -54,6 +54,12 @@ export class AuthService {
     role: Role,
     phone?: string,
   ) {
+    if (role === 'DOCTOR') {
+      throw new BadRequestException(
+        'Doctors cannot register publicly. Please contact your organization admin.',
+      );
+    }
+
     const existing = await this.users.findByEmail(email);
     if (existing) {
       throw new BadRequestException('Email already registered');
@@ -65,7 +71,7 @@ export class AuthService {
       name,
       email,
       password: hashedPassword,
-      role,
+      role, // This will be PATIENT or ADMIN (if allowed), but mostly PATIENT
       phone,
     });
 
@@ -91,14 +97,21 @@ export class AuthService {
     }
 
     // If doctor, ensure verificationStatus is APPROVED before allowing login
+    // EXCEPTION: If they are an ORG_ADMIN or RECEPTIONIST (who share the DOCTOR global role), 
+    // they might not have a doctor profile, so we skip this check.
     if (user.role === 'DOCTOR') {
-      const status = await this.users.getDoctorVerificationStatus(user.id).catch(
-        () => null,
-      );
-      if (!status || status.verificationStatus !== 'APPROVED') {
-        throw new UnauthorizedException(
-          'Doctor account is pending admin approval',
+      const memberships = (user as any).memberships || [];
+      const isAdminOrStaff = memberships.some((m: any) => m.role === 'ORG_ADMIN' || m.role === 'RECEPTIONIST');
+
+      if (!isAdminOrStaff) {
+        const status = await this.users.getDoctorVerificationStatus(user.id).catch(
+          () => null,
         );
+        if (!status || status.verificationStatus !== 'APPROVED') {
+          throw new UnauthorizedException(
+            'Doctor account is pending admin approval',
+          );
+        }
       }
     }
 

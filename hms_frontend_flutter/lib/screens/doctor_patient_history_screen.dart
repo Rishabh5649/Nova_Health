@@ -61,6 +61,51 @@ class _DoctorPatientHistoryScreenState extends ConsumerState<DoctorPatientHistor
     }
   }
 
+  Future<void> _showSummary() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final dio = ref.read(apiClientProvider).dio;
+      final res = await dio.get('/patients/${widget.patientId}/summary');
+      
+      if (mounted) {
+        Navigator.pop(context); // Pop loader
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.psychology, color: Colors.purple),
+                const SizedBox(width: 8),
+                const Text('Medical History Bot'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Text(res.data['summary'] ?? 'No summary available.'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Pop loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate summary: $e')),
+        );
+      }
+    }
+  }
+
   void _showMedicalHistory() {
     showModalBottomSheet(
       context: context,
@@ -230,6 +275,16 @@ class _DoctorPatientHistoryScreenState extends ConsumerState<DoctorPatientHistor
                         label: const Text('Full History'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _showSummary,
+                        icon: const Icon(Icons.psychology, size: 18),
+                        label: const Text('AI Summary'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple,
                           foregroundColor: Colors.white,
                         ),
                       ),

@@ -4,9 +4,29 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+    // 0. Create Super Admin
+    const superAdminPassword = await bcrypt.hash('ri.shabh5649', 10);
+    const superAdmin = await prisma.user.upsert({
+        where: { email: 'rishabhsingh30705@gmail.com' },
+        update: {},
+        create: {
+            name: 'Rishabh Singh',
+            email: 'rishabhsingh30705@gmail.com',
+            password: superAdminPassword,
+            role: Role.ADMIN,
+        },
+    });
+    console.log('Created Super Admin:', superAdmin.email);
+
     // 1. Create Default Organization with Settings
-    const org = await prisma.organization.create({
-        data: {
+    const org = await prisma.organization.upsert({
+        where: { id: '781d5309-e030-4e7e-9087-17573ea1c4d9' }, // Use a fixed ID for the seed org to ensure upsert works reliably or match by unique constraint if one exists (name is not unique usually)
+        // Actually, name is not unique in schema usually. Let's assume we want to find by name if possible, but prisma upsert requires unique.
+        // Let's check schema first to see if name is unique. If not, we might need findFirst -> update/create.
+        // For now, let's try findFirst logic manually or just use a fixed UUID for the seed.
+        update: {},
+        create: {
+            id: '781d5309-e030-4e7e-9087-17573ea1c4d9', // Fixed ID for checking
             name: 'City Hospital',
             type: 'Hospital',
             address: '123 Health St, Wellness City',
@@ -19,7 +39,7 @@ async function main() {
             branches: ['Downtown Clinic', 'Westside Center'],
             settings: {
                 create: {
-                    enableReceptionists: true, // Large hospital, enable receptionists
+                    enableReceptionists: true,
                     allowPatientBooking: true,
                     requireApprovalForDoctors: true,
                     requireApprovalForReceptionists: true,
@@ -38,9 +58,10 @@ async function main() {
             name: 'Jane Doe',
             email: 'admin@cityhospital.com',
             password: adminPassword,
-            role: Role.ADMIN,
+            role: Role.DOCTOR, // Changed to DOCTOR to act as Org Admin, not Super Admin
         },
     });
+
 
     // Create admin's approved membership
     await prisma.organizationMembership.create({
@@ -74,10 +95,10 @@ async function main() {
                     yearsExperience: 8,
                     bio: 'Experienced cardiologist specializing in heart disease prevention and treatment.',
                     verificationStatus: 'APPROVED',
-                    baseFee: 800,       // New field
-                    followUpDays: 7,    // New field
-                    followUpFee: 0,     // New field
-                    fees: 800,          // Deprecated but kept for compatibility
+                    baseFee: 800,
+                    followUpDays: 7,
+                    followUpFee: 0,
+                    fees: 800,
                 },
             },
         },
@@ -110,10 +131,10 @@ async function main() {
                     yearsExperience: 12,
                     bio: 'Pediatric specialist with extensive experience in child healthcare.',
                     verificationStatus: 'APPROVED',
-                    baseFee: 600,       // New field
-                    followUpDays: 14,   // New field (longer follow-up period)
-                    followUpFee: 200,   // New field (charged follow-up)
-                    fees: 600,          // Deprecated
+                    baseFee: 600,
+                    followUpDays: 14,
+                    followUpFee: 200,
+                    fees: 600,
                 },
             },
         },
@@ -140,7 +161,7 @@ async function main() {
             name: 'Mary Receptionist',
             email: 'mary@cityhospital.com',
             password: receptionistPassword,
-            role: Role.ADMIN, // Global role is ADMIN, but OrgRole is RECEPTIONIST
+            role: Role.DOCTOR, // Global role must not be ADMIN
             phone: '+1234567896',
         },
     });

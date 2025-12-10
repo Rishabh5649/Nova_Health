@@ -24,4 +24,13 @@ export class UpdatePatientDto {
   @IsOptional() @IsArray()
   @Transform(({ value }) => (Array.isArray(value) ? value : undefined))
   chronicConditions?: string[];
+
+  @IsOptional() @IsString()
+  phone?: string;
+
+  @IsOptional() @IsString()
+  email?: string;
+
+  @IsOptional()
+  isMedicalHistoryShared?: boolean;
 }

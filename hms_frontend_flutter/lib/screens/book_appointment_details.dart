@@ -27,6 +27,8 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
   late Razorpay _razorpay;
   String? _pendingOrgId; 
   bool _simulatePayment = false;
+  String? _precreatedOrderId;
+  bool _creatingOrder = false;
 
   @override
   void initState() {
@@ -125,6 +127,12 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
         _loadingDoctor = false;
         _checkingEligibility = false;
       });
+
+      // Prefetch order if needed
+      final chargedFee = _eligibility?['chargedFee'] ?? _doctor?['baseFee'] ?? _doctor?['fees'] ?? 0;
+      if (chargedFee is num && chargedFee > 0) {
+        _prefetchRazorpayOrder(chargedFee.toInt());
+      }
     } catch (e) {
       debugPrint('Error loading data: $e');
       if (!mounted) return;
@@ -132,6 +140,22 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
         _loadingDoctor = false;
         _checkingEligibility = false;
       });
+    }
+  }
+  
+  Future<void> _prefetchRazorpayOrder(int amount) async {
+    if (_creatingOrder) return;
+    setState(() => _creatingOrder = true);
+    try {
+       final dio = ref.read(apiClientProvider).dio;
+       final orderRes = await dio.post('/payments/create-order', data: {'amount': amount});
+       if (mounted) {
+         setState(() => _precreatedOrderId = orderRes.data['id'].toString());
+       }
+    } catch (e) {
+      debugPrint('Error pre-creating order: $e');
+    } finally {
+      if (mounted) setState(() => _creatingOrder = false);
     }
   }
 
@@ -199,14 +223,19 @@ class _BookAppointmentDetailsScreenState extends ConsumerState<BookAppointmentDe
       // Initiate Razorpay Flow
       try {
         final dio = ref.read(apiClientProvider).dio;
-        // Create Order
-        final orderRes = await dio.post('/payments/create-order', data: {'amount': chargedFee});
-        final orderData = orderRes.data;
-        final String orderId = orderData['id'].toString();
         
+        String orderId;
+        if (_precreatedOrderId != null) {
+           orderId = _precreatedOrderId!;
+        } else {
+           // Fallback if prefetch failed
+           final orderRes = await dio.post('/payments/create-order', data: {'amount': chargedFee});
+           orderId = orderRes.data['id'].toString();
+        }
+
         var options = {
           'key': 'rzp_test_1DP5mmOlF5G5ag',
-          'amount': orderData['amount'],
+          'amount': chargedFee * 100,
           'name': 'Nova Health',
           'description': 'Appointment with Dr. ${_doctor?['name']}',
           if (!orderId.contains('simulated')) 'order_id': orderId,

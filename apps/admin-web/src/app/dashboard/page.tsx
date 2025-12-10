@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAppointments, getPendingStaff } from '@/lib/api';
+import { getAppointments, getPendingStaff, getOrganization } from '@/lib/api';
 
 export default function DashboardPage() {
     const router = useRouter();
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [orgStatus, setOrgStatus] = useState('APPROVED'); // Default to allow, check later
     const [pendingStaff, setPendingStaff] = useState(0);
     const [stats, setStats] = useState({
         today: 0,
@@ -29,6 +30,12 @@ export default function DashboardPage() {
         const orgId = user.memberships?.[0]?.organizationId;
         const userRole = user.memberships?.[0]?.role;
         setRole(userRole);
+
+        if (orgId) {
+            getOrganization(token, orgId).then(org => {
+                setOrgStatus(org.status || 'PENDING');
+            }).catch(console.error);
+        }
 
         // Fetch appointments
         getAppointments(token, orgId)
@@ -77,6 +84,37 @@ export default function DashboardPage() {
     }
 
     const isAdmin = role === 'ORG_ADMIN';
+
+    if (orgStatus === 'PENDING') {
+        return (
+            <div className="glass-card" style={{ maxWidth: '600px', margin: '4rem auto', textAlign: 'center', padding: '3rem' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏳</div>
+                <h1 className="title-gradient" style={{ fontSize: '2rem', marginBottom: '1rem' }}>Registration Under Review</h1>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: '1.6' }}>
+                    Your organization registration has been submitted and is currently awaiting approval from the Nova Health administration team.
+                    You will receive an email once your account is active.
+                </p>
+                <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', fontSize: '0.875rem' }}>
+                    Status: <span style={{ color: 'var(--warning)', fontWeight: 'bold' }}>PENDING APPROVAL</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (orgStatus === 'REJECTED') {
+        return (
+            <div className="glass-card" style={{ maxWidth: '600px', margin: '4rem auto', textAlign: 'center', padding: '3rem' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
+                <h1 className="title-gradient" style={{ fontSize: '2rem', marginBottom: '1rem' }}>Registration Rejected</h1>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: '1.6' }}>
+                    Your organization registration was not approved. Please contact support for more information.
+                </p>
+                <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', fontSize: '0.875rem' }}>
+                    Status: <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>REJECTED</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>

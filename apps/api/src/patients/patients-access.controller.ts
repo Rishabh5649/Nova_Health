@@ -21,4 +21,10 @@ export class PatientsAccessController {
     getPatientProfile(@Param('id') id: string) {
         return this.svc.getMe(id);
     }
+
+    @Get(':id/summary')
+    @Roles(Role.DOCTOR, Role.ADMIN)
+    getPatientSummary(@Param('id') id: string) {
+        return this.svc.getSummary(id);
+    }
 }

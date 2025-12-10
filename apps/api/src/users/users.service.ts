@@ -156,6 +156,9 @@ export class UsersService {
   /**
    * Find user with full membership details including approval status
    */
+  /**
+   * Find user with full membership details including approval status
+   */
   async findUserWithMemberships(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
@@ -174,6 +177,31 @@ export class UsersService {
           }
         }
       },
+    });
+  }
+
+  /**
+   * Find all users, optionally filtered by role.
+   */
+  async findAll(role?: Role) {
+    return this.prisma.user.findMany({
+      where: role ? { role } : {},
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        createdAt: true,
+        memberships: {
+          include: {
+            organization: {
+              select: { id: true, name: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

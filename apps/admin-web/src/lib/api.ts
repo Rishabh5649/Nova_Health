@@ -15,8 +15,9 @@ export async function login(email: string, password: string) {
     return res.json();
 }
 
-export async function getOrganizations(token: string) {
-    const res = await fetch(`${API_URL}/organizations`, {
+export async function getOrganizations(token: string, status?: string) {
+    const params = status ? `?status=${status}` : '';
+    const res = await fetch(`${API_URL}/organizations${params}`, {
         headers: {
             'Authorization': `Bearer ${token}`,
         },
@@ -26,6 +27,37 @@ export async function getOrganizations(token: string) {
         throw new Error('Failed to fetch organizations');
     }
 
+    return res.json();
+}
+
+export async function registerOrganization(data: any) {
+    const res = await fetch(`${API_URL}/organizations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to register organization');
+    }
+
+    return res.json();
+}
+
+export async function updateOrganizationStatus(token: string, id: string, status: 'APPROVED' | 'REJECTED') {
+    const res = await fetch(`${API_URL}/organizations/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to update organization status');
+    }
     return res.json();
 }
 
@@ -188,6 +220,16 @@ export async function removeStaff(token: string, orgId: string, membershipId: st
         headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('Failed to remove staff member');
+    return res.json();
+}
+
+export async function getPublicOrganization(id: string) {
+    const res = await fetch(`${API_URL}/organizations/${id}`);
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch organization details');
+    }
+
     return res.json();
 }
 
@@ -367,3 +409,12 @@ export const cancelAppointmentAsAdmin = async (token: string, appointmentId: str
     if (!res.ok) throw new Error('Failed to cancel appointment');
     return res.json();
 };
+
+export async function getUsers(token: string, role?: string) {
+    const params = role ? `?role=${role}` : '';
+    const res = await fetch(`${API_URL}/users${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
+}

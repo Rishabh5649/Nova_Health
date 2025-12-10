@@ -20,4 +20,28 @@ export class CreateOrganizationDto {
     @IsPhoneNumber()
     @IsOptional()
     contactPhone?: string;
+
+    @IsString()
+    @IsOptional()
+    feeControlMode?: string;
+
+    @IsOptional()
+    yearEstablished?: number;
+
+    @IsOptional()
+    latitude?: number;
+
+    @IsOptional()
+    longitude?: number;
+
+    @IsOptional()
+    branches?: string[];
+
+    @IsOptional()
+    adminUser?: {
+        name: string;
+        email: string;
+        password: string;
+        phone?: string;
+    };
 }
