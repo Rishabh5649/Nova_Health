@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, parseISO } from 'date-fns';
 import { getDoctorAvailability, directReschedule, getDoctorTimeOff } from '@/lib/api';
 
-export default function CalendarPage() {
+import { Suspense } from 'react';
+
+function CalendarContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const appointmentIdToSchedule = searchParams.get('appointmentId');
@@ -80,7 +82,7 @@ export default function CalendarPage() {
         }
 
         try {
-            const res = await fetch('http://127.0.0.1:3000/doctors', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000'}/doctors`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             const data = await res.json();
@@ -100,7 +102,7 @@ export default function CalendarPage() {
         if (!token || !selectedDoctor) return;
 
         try {
-            const res = await fetch(`http://127.0.0.1:3000/appointments?doctorId=${selectedDoctor}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000'}/appointments?doctorId=${selectedDoctor}`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             const data = await res.json();
@@ -115,7 +117,7 @@ export default function CalendarPage() {
         if (!token || !selectedDoctor) return;
 
         try {
-            const res = await fetch(`http://127.0.0.1:3000/appointments?doctorId=${selectedDoctor}&status=PENDING`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000'}/appointments?doctorId=${selectedDoctor}&status=PENDING`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             const data = await res.json();
@@ -173,7 +175,7 @@ export default function CalendarPage() {
             const scheduledAt = new Date(targetDate);
             scheduledAt.setHours(parseInt(hour), 0, 0, 0);
 
-            await fetch(`http://127.0.0.1:3000/appointments/${appointmentId}/confirm`, {
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000'}/appointments/${appointmentId}/confirm`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -215,7 +217,6 @@ export default function CalendarPage() {
         const dayWorkHours = doctorWorkHours.find(wh => wh.weekday === weekday);
         if (!dayWorkHours) return false; // Doctor doesn't work on this day
 
-        // Check if hour is within work hours
         // Check if hour is within work hours
         if (hour < dayWorkHours.startHour || hour >= dayWorkHours.endHour) return false;
 
@@ -490,5 +491,13 @@ export default function CalendarPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function CalendarPage() {
+    return (
+        <Suspense fallback={<div>Loading calendar...</div>}>
+            <CalendarContent />
+        </Suspense>
     );
 }
