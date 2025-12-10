@@ -55,5 +55,5 @@ apps/*/.env
 Thumbs.db
 
 # Documentation
-*.md
+# *.md
 !README.md
