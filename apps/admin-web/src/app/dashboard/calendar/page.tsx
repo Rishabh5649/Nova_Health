@@ -1,12 +1,10 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, parseISO } from 'date-fns';
 import { getDoctorAvailability, directReschedule, getDoctorTimeOff } from '@/lib/api';
-
-import { Suspense } from 'react';
 
 function CalendarContent() {
     const router = useRouter();
