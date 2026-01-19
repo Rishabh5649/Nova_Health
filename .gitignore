@@ -12,7 +12,6 @@
 **/yarn-debug.log*
 **/yarn-error.log*
 **/.npm/
-package-lock.json
 
 # Next.js (website-frontend)
 website-frontend/.next/
