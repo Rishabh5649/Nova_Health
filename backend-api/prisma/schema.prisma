@@ -1,0 +1,499 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// ENUMS
+//
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum OrgRole {
+  ORG_ADMIN
+  RECEPTIONIST
+  DOCTOR
+}
+
+enum AppointmentStatus {
+  PENDING
+  PENDING_REQUEST
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+//
+// CORE USER
+//
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(PATIENT) // Global Role
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Organization Memberships
+  memberships OrganizationMembership[]
+  approvedMemberships OrganizationMembership[] @relation("ApprovedMemberships")
+
+  // Appointment relations
+  appointmentsAsDoctor  Appointment[] @relation("DoctorAppointments")
+  appointmentsAsPatient Appointment[] @relation("PatientAppointments")
+
+  // Prescription relations
+  prescriptionsAsDoctor  Prescription[] @relation("DoctorPrescriptions")
+  prescriptionsAsPatient Prescription[] @relation("PatientPrescriptions")
+  
+  // Signatures
+  signedPrescriptions Prescription[] @relation("PrescriptionSigner")
+
+  // Medical history entries for this user as a patient
+  medicalHistory MedicalHistory[] @relation("PatientMedicalHistory")
+
+  // Profile (optional 1-1)
+  doctorProfile  Doctor?
+  patientProfile Patient?
+  
+  // Audit logs
+  auditLogs AuditLog[]
+
+  // Reviews given by this user (as patient)
+  reviews   Review[]
+  
+  // Reschedule requests made by this user
+  rescheduleRequests RescheduleRequest[]
+  
+  // Cancellations performed by this user
+  // Cancellations performed by this user
+  appointmentCancellations AppointmentCancellation[]
+
+  // Notifications
+  notifications Notification[]
+  
+  // Custom Reminders
+  reminders     PatientReminder[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // SYSTEM, APPOINTMENT, PROMO
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+//
+// ORGANIZATION
+//
+model Organization {
+  id            String   @id @default(uuid())
+  name          String
+  type          String   // Clinic, Hospital
+  address       String?
+  contactEmail  String?
+  contactPhone  String?
+  feeControlMode String  @default("doctor_controlled") // "doctor_controlled" or "organization_controlled"
+  yearEstablished Int?
+  latitude        Float?
+  longitude       Float?
+  branches        String[]
+  ratingAvg       Float    @default(0)
+  ratingCount     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  members       OrganizationMembership[]
+  appointments  Appointment[]
+  prescriptions Prescription[]
+  patientSnapshots OrgPatientSnapshot[]
+  auditLogs     AuditLog[]
+  settings      OrganizationSettings?
+  reviews       Review[]
+}
+
+//
+// ORGANIZATION SETTINGS
+//
+model OrganizationSettings {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  
+  // Receptionist Settings
+  enableReceptionists Boolean @default(false)
+  
+  // Booking Settings
+  allowPatientBooking Boolean @default(true)
+  requireApprovalForDoctors Boolean @default(true)
+  requireApprovalForReceptionists Boolean @default(true)
+  
+  // Other settings
+  autoApproveFollowUps Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+//
+// ORGANIZATION MEMBERSHIP
+//
+model OrganizationMembership {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String
+  role           OrgRole
+  isActive       Boolean  @default(true)
+  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy     String?  // userId of admin who approved
+  approvedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  approver     User?        @relation("ApprovedMemberships", fields: [approvedBy], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+//
+// PATIENT PROFILE (Global)
+// 1-1 with User where role = PATIENT
+//
+model Patient {
+  userId            String    @id
+  name              String
+  dob               DateTime?
+  bloodGroup        String?
+  gender            String?
+  allergies         String[]
+  chronicConditions String[]
+  isMedicalHistoryShared Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+  
+  snapshots OrgPatientSnapshot[]
+}
+
+//
+// ORG PATIENT SNAPSHOT
+// Local record of a patient within an organization
+//
+model OrgPatientSnapshot {
+  id             String   @id @default(uuid())
+  organizationId String
+  patientId      String   // Links to global Patient profile (User.id or Patient.userId)
+  
+  snapshotData   Json?    // Stores visit-specific details, consent flags, etc.
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  patient      Patient      @relation(fields: [patientId], references: [userId])
+}
+
+//
+// DOCTOR PROFILE (Global Professional Profile)
+// 1-1 with User where role = DOCTOR
+//
+model Doctor {
+  userId             String   @id
+  name               String
+  age                Int?
+  qualifications     String[]
+  specialties        String[]
+  yearsExperience    Int      @default(0)
+  bio                String?
+  verificationStatus String   @default("PENDING")
+  baseFee            Int      @default(500) // Base consultation fee
+  followUpDays       Int      @default(7)   // Days within which follow-up is valid
+  followUpFee        Int      @default(0)   // Fee for follow-up (usually 0)
+  ratingAvg          Float    @default(0)
+  ratingCount        Int      @default(0)
+  timezone           String   @default("Asia/Kolkata")
+  
+  // New fields for MVP
+  degrees            String[] // e.g. MBBS, MD
+  fees               Int      @default(500) // Standard consultation fee (deprecated, use baseFee)
+
+  user User @relation(fields: [userId], references: [id])
+
+  // availability / time off (Global for now, could be org-scoped later)
+  availability DoctorAvailability[]
+  timeOff      DoctorTimeOff[]
+
+  reviews      Review[]
+}
+
+//
+// APPOINTMENT
+//
+model Appointment {
+  id       String @id @default(uuid())
+  
+  organizationId String? // Optional for migration, should be required later
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  doctor   User   @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  doctorId String
+
+  patient   User   @relation("PatientAppointments", fields: [patientId], references: [id])
+  patientId String
+
+  scheduledAt DateTime
+  reason      String?
+  status      AppointmentStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isFollowUp               Boolean   @default(false)
+  followUpParentId        String?   // references Appointment.id when this is a follow‑up
+  chargedFee              Int       @default(0)
+  // relation to parent appointment (optional)
+  followUpParent          Appointment? @relation("FollowUp", fields: [followUpParentId], references: [id])
+  // reverse relation for children follow‑ups
+  followUpChildren        Appointment[] @relation("FollowUp")
+
+  prescriptions Prescription[]
+  review        Review?
+  rescheduleRequests RescheduleRequest[]
+  cancellation  AppointmentCancellation?
+  
+  // Payment fields
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  paymentStatus     String   @default("PENDING") // PENDING, PAID, FAILED
+  payments          Payment[]
+}
+
+
+
+//
+// RESCHEDULE REQUESTS
+//
+model RescheduleRequest {
+  id        String   @id @default(uuid())
+  
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointmentId String
+  
+  requestedBy   User   @relation(fields: [requestedById], references: [id])
+  requestedById String
+  
+  requestedDateTime DateTime
+  reason            String?
+  unavailableUntil  DateTime?  // "Can't make it until" date
+  requestCount      Int        @default(1)  // Track request count
+  isWithinSameWeek  Boolean    @default(true)  // Same week validation
+  status            String @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([appointmentId])
+  @@index([requestedById])
+}
+
+//
+// APPOINTMENT CANCELLATIONS
+//
+model AppointmentCancellation {
+  id              String   @id @default(uuid())
+  
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointmentId   String   @unique
+  
+  cancelledBy     User   @relation(fields: [cancelledById], references: [id])
+  cancelledById   String
+  
+  reason          String   // Mandatory cancellation reason
+  refundStatus    String   // 'refunded', 'non_refundable', 'pending'
+  refundAmount    Int?     // Amount refunded (if applicable)
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([appointmentId])
+  @@index([cancelledById])
+}
+
+
+//
+// DOCTOR AVAILABILITY
+//
+model DoctorAvailability {
+  id        String   @id @default(cuid())
+  doctorId  String
+  weekday   Int // 0-6 for Sun-Sat
+  startTime DateTime
+  endTime   DateTime
+
+  doctor Doctor @relation(fields: [doctorId], references: [userId])
+
+  @@index([doctorId, weekday])
+}
+
+//
+// DOCTOR TIME OFF
+//
+model DoctorTimeOff {
+  id        String   @id @default(cuid())
+  doctorId  String
+  startTime DateTime
+  endTime   DateTime
+  reason    String?
+
+  doctor Doctor @relation(fields: [doctorId], references: [userId])
+}
+
+// --------------------------------------
+// PRESCRIPTION + MEDICATION
+// --------------------------------------
+model Prescription {
+  id             String   @id @default(uuid())
+  
+  organizationId String? // Optional for migration
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  appointmentId  String
+  doctorId       String
+  patientId      String
+
+  diagnosis      String        // e.g. "Acute bronchitis"
+  notes          String?       // extra instructions to the patient
+  
+  status         String        @default("ISSUED") // DRAFT, SIGNED, ISSUED
+  signedByUserId String?
+  signedAt       DateTime?
+
+  // relations
+  doctor      User        @relation("DoctorPrescriptions", fields: [doctorId], references: [id])
+  patient     User        @relation("PatientPrescriptions", fields: [patientId], references: [id])
+  signer      User?       @relation("PrescriptionSigner", fields: [signedByUserId], references: [id])
+  
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  medications Medication[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Medication {
+  id             String   @id @default(uuid())
+  prescriptionId String
+  name           String        // "Amoxicillin 500mg"
+  dosage         String        // "500 mg"
+  frequency      String        // "3 times a day"
+  duration       String        // "5 days"
+  instruction    String?       // "after meals"
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// --------------------------------------
+// MEDICAL HISTORY
+// --------------------------------------
+model MedicalHistory {
+  id         String   @id @default(uuid())
+  patientId  String
+  diagnosis  String         // high-level issue at that visit, e.g. "Hypertension Stage 2"
+  details    String?        // notes, observations, plan
+  recordedAt DateTime @default(now())
+
+  patient User @relation("PatientMedicalHistory", fields: [patientId], references: [id])
+}
+
+//
+// AUDIT LOG
+//
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  userId         String
+  action         String
+  resourceType   String
+  resourceId     String?
+  details        Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+}
+
+
+
+model Review {
+  id            String   @id @default(uuid())
+  appointmentId String   @unique
+  doctorId      String
+  patientId     String
+  rating        Int      // 1-5
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  doctor      Doctor      @relation(fields: [doctorId], references: [userId])
+  patient     User        @relation(fields: [patientId], references: [id])
+  
+  // Organization Review
+  organizationId      String?
+  organization        Organization? @relation(fields: [organizationId], references: [id])
+  organizationRating  Int?      // 1-5
+  organizationComment String?
+}
+
+//
+// PATIENT CUSTOM REMINDERS
+//
+model PatientReminder {
+  id           String   @id @default(uuid())
+  patientId    String
+  medicineName String
+  frequency    Int      // Times per day
+  timeSlots    String[] // Array of "HH:mm" strings
+  duration     Int      // Number of days
+  startDate    DateTime @default(now())
+  endDate      DateTime // Calculated end date
+  isEnabled    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  patient      User     @relation(fields: [patientId], references: [id])
+}
+
+//
+// PAYMENTS
+//
+model Payment {
+  id                String   @id @default(uuid())
+  appointmentId     String
+  razorpayOrderId   String
+  razorpayPaymentId String?
+  razorpaySignature String?
+  amount            Int      // in smallest currency unit (paise)
+  currency          String   @default("INR")
+  status            String   // created, paid, failed
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  appointment       Appointment @relation(fields: [appointmentId], references: [id])
+}
