@@ -25,9 +25,10 @@ Nova Health is a comprehensive Hospital Management System (HMS) designed to stre
 
 ## 📂 Project Structure
 
-- `apps/api`: NestJS backend server.
-- `apps/admin-web`: Next.js web application for administrators.
-- `hms_frontend_flutter`: Flutter mobile application.
+- `backend-api`: NestJS backend server (API & Logic).
+- `website-frontend`: Next.js web application for administrators.
+- `mobile-frontend`: Flutter mobile application for Doctors & Patients.
+- `database`: Docker infrastructure and database configuration.
 
 ## 🏁 Getting Started
 
@@ -45,23 +46,24 @@ Nova Health is a comprehensive Hospital Management System (HMS) designed to stre
     cd Nova_Health
     ```
 
+
 2.  **Start the Backend:**
     ```bash
-    cd apps/api
+    cd backend-api
     npm install
     npm run start:dev
     ```
 
 3.  **Start the Admin Web App:**
     ```bash
-    cd apps/admin-web
+    cd website-frontend
     npm install
     npm run dev
     ```
 
 4.  **Run the Mobile App:**
     ```bash
-    cd hms_frontend_flutter
+    cd mobile-frontend
     flutter pub get
     flutter run
     ```

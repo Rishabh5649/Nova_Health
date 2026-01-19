@@ -1,59 +1,61 @@
-﻿# Node.js
-node_modules/
-dist/
-build/
-.next/
-coverage/
-.turbo/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.npm/
+﻿# Environment Variables (Keep sensitive data out of Git)
+**/.env
+**/.env.*
+!**/.env.example
 
-# Environment Variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-apps/*/.env
+# Node.js
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.npm/
+package-lock.json
 
-# Flutter / Dart
-.dart_tool/
-.packages
-.pub/
-.pub-cache/
-.flutter-plugins
-.flutter-plugins-dependencies
-**/android/app/google-services.json
+# Next.js (website-frontend)
+website-frontend/.next/
+website-frontend/out/
 
-# Android
-**/android/.gradle
-**/android/captures/
-**/android/gradlew
-**/android/gradlew.bat
-**/android/local.properties
-**/android/key.properties
-*.iml
+# Prisma
+**/prisma/migrations/
+**/prisma/generated/
+**/prisma/*.db
+**/prisma/*.db-journal
 
-# iOS
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/app.flx
-**/ios/Flutter/app.zip
-**/ios/Flutter/flutter_assets/
-**/ios/Flutter/flutter_export_environment.sh
-**/ios/ServiceDefinitions.json
-**/ios/Runner/GeneratedPluginRegistrant.*
+# Flutter / Dart (mobile-frontend)
+mobile-frontend/.dart_tool/
+mobile-frontend/.packages
+mobile-frontend/.pub/
+mobile-frontend/.pub-cache/
+mobile-frontend/build/
+mobile-frontend/.flutter-plugins
+mobile-frontend/.flutter-plugins-dependencies
+mobile-frontend/ios/Flutter/Generated.xcconfig
+mobile-frontend/ios/Flutter/flutter_export_environment.sh
+mobile-frontend/ios/Runner/GeneratedPluginRegistrant.*
+mobile-frontend/android/local.properties
+mobile-frontend/android/key.properties
+mobile-frontend/android/app/google-services.json
+**/*.iml
 
-# IDEs
+# IDEs and OS
 .idea/
 .vscode/
 *.swp
 *.swo
 .DS_Store
 Thumbs.db
+.history/
 
-# Documentation
-# *.md
-!README.md
+# Docker
+.docker/
+
+# Agent/AI specific
+.agent/
+.gemini/
+
+# Project Specific
+org_id.txt
+*.log
